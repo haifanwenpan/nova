@@ -1,0 +1,42 @@
+==============================================================
+ nova 回归测试    2026-11-19 13:11:34
+   帧数=2  freq=1  DF=on
+==============================================================
+[1/6] 输入为 .264 裸码流，先转成 hex 文本 ...
+[bin2hex] 码流长度 4113 为奇数，末尾补 1 字节 0x00
+[bin2hex] /tmp/test_poc0_baseline.264 -> out/poc0b_from264.txt
+[bin2hex]   4113 字节 = 2057 个 16bit word = 2057 行
+[2/6] ffmpeg 解码生成参考 YUV ...
+[3/6] 编译 RTL (iverilog) ...
+      编译成功（0 条非 timescale 提示，详见 out/poc0b_build.log.filtered）
+[4/6] 运行仿真 (2 帧) ...
+[TB] bitstream = out/poc0b_from264.txt
+[TB] output    = out/poc0b_nova.yuv
+[TB] frames    = 2
+WARNING: tb/tb_nova.v:356: $readmemh(out/poc0b_from264.txt): Not enough words in the file for the requested range [0:131071].
+[TB] bitstream occupies ROM words 0..2056
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 1 at cycle 44715 (t=30406880)
+[TB] end-of-stream flush: emitting last picture from buffer 1
+[TB] emitted picture 2 at cycle 90293 (t=61399920)
+[TB] DONE: 2 pictures, 90295 cycles, 45148 cycles/picture
+tb/tb_nova.v:396: $finish called at 61400601 (1ns)
+      仿真耗时 8 秒
+[5/6] 逐像素比对 ...
+[compare] nova : out/poc0b_nova.yuv  (76032 B, 2 帧)
+[compare] ref  : out/poc0b_ref.yuv  (228096 B, 6 帧)
+[compare] 比对 2 帧, 176x144 YUV420p, 单帧 38016 B
+
+
+============================================================
+[compare] 总像素数    : 76032
+[compare] 不同像素总数: 73435
+[compare] 最差单点    : 帧 0 / V / maxdiff=255
+[compare] 整序列 PSNR : 12.84 dB
+[compare] 结果: FAIL —— 2 帧存在差异 (首帧 0, 末帧 1)
+[6/6] 完整性检查 ...
+[check] nova 输出 2 帧 / 参考序列共 6 帧 / 请求 2 帧
+[check] 帧数完整
+==============================================================
+ 结果: FAIL (compare=1 check=0)
+==============================================================

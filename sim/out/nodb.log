@@ -1,0 +1,44 @@
+==============================================================
+ nova 回归测试    2026-11-19 12:37:30
+   帧数=5  freq=1  DF=off
+==============================================================
+[1/6] 使用已有 hex 码流: ../test/bitstream/akiyo300_1ref.txt
+[hex2bin] akiyo300_1ref.txt -> nodb_from_hex.264  (131072 word, 262144 字节)
+[2/6] ffmpeg 解码生成参考 YUV ...
+[3/6] 编译 RTL (iverilog) ...
+      编译成功（0 条非 timescale 提示，详见 out/nodb_build.log.filtered）
+[4/6] 运行仿真 (5 帧) ...
+[TB] bitstream = ../test/bitstream/akiyo300_1ref.txt
+[TB] output    = out/nodb_nova.yuv
+[TB] frames    = 5
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 1 at cycle 46943 (t=31921920)
+[TB] end-of-stream flush: emitting last picture from buffer 1
+[TB] emitted picture 2 at cycle 88208 (t=59982120)
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 3 at cycle 137398 (t=93431320)
+[TB] end-of-stream flush: emitting last picture from buffer 1
+[TB] emitted picture 4 at cycle 187356 (t=127402760)
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 5 at cycle 237777 (t=161689040)
+[TB] DONE: 5 pictures, 237779 cycles, 47556 cycles/picture
+tb/tb_nova.v:345: $finish called at 161689721 (1ns)
+      仿真耗时 13 秒
+[5/6] 逐像素比对 ...
+[compare] nova : out/nodb_nova.yuv  (190080 B, 5 帧)
+[compare] ref  : out/nodb_ref.yuv  (11404800 B, 300 帧)
+[compare] 比对 5 帧, 176x144 YUV420p, 单帧 38016 B
+
+
+============================================================
+[compare] 总像素数    : 190080
+[compare] 不同像素总数: 75947
+[compare] 最差单点    : 帧 0 / Y / maxdiff=24
+[compare] 整序列 PSNR : 46.35 dB
+[compare] 结果: FAIL —— 5 帧存在差异 (首帧 0, 末帧 4)
+[6/6] 完整性检查 ...
+[check] nova 输出 5 帧 / 参考序列共 300 帧 / 请求 5 帧
+[check] 帧数完整
+==============================================================
+ 结果: FAIL (compare=1 check=0)
+==============================================================

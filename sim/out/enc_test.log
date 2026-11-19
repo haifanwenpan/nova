@@ -1,0 +1,42 @@
+==============================================================
+ nova 回归测试    2026-11-19 12:26:06
+   帧数=5  freq=1  DF=on
+==============================================================
+[1/6] 生成测试序列 testsrc QCIF 300 帧 ...
+[1/6] ffmpeg 编码 baseline 码流 (QP=28, 单参考帧, 无 B 帧) ...
+[bin2hex] vectors/testsrc_qcif.264 -> vectors/testsrc_qcif.txt
+[bin2hex]   71722 字节 = 35861 个 16bit word = 35861 行
+[2/6] ffmpeg 解码同一码流，生成参考 YUV ...
+[3/6] 编译 RTL (iverilog) ...
+      编译成功（0 条非 timescale 提示，详见 out/enc_test_build.log.filtered）
+[4/6] 运行仿真 (5 帧) ...
+[TB] bitstream = vectors/testsrc_qcif.txt
+[TB] output    = out/enc_test_nova.yuv
+[TB] frames    = 5
+WARNING: tb/tb_nova.v:265: $readmemh(vectors/testsrc_qcif.txt): Not enough words in the file for the requested range [0:131071].
+[TB] emitted picture 1 at cycle 50544 (t=34370600)
+[TB] emitted picture 2 at cycle 100548 (t=68373320)
+[TB] emitted picture 3 at cycle 150574 (t=102391000)
+[TB] emitted picture 4 at cycle 200680 (t=136463080)
+[TB] emitted picture 5 at cycle 250684 (t=170465800)
+[TB] DONE: 5 pictures, 250686 cycles, 50137 cycles/picture
+tb/tb_nova.v:296: $finish called at 170466481 (1ns)
+      仿真耗时 16 秒
+[5/6] 逐像素比对 ...
+[compare] nova : out/enc_test_nova.yuv  (190080 B, 5 帧)
+[compare] ref  : vectors/testsrc_qcif_ref.yuv  (11404800 B, 300 帧)
+[compare] 比对 5 帧, 176x144 YUV420p, 单帧 38016 B
+
+
+============================================================
+[compare] 总像素数    : 190080
+[compare] 不同像素总数: 189947
+[compare] 最差单点    : 帧 0 / V / maxdiff=255
+[compare] 整序列 PSNR : 4.93 dB
+[compare] 结果: FAIL —— 5 帧存在差异 (首帧 0, 末帧 4)
+[6/6] 完整性检查 ...
+[check] nova 输出 5 帧 / 参考序列共 300 帧 / 请求 5 帧
+[check] 帧数完整
+==============================================================
+ 结果: FAIL (compare=1 check=0)
+==============================================================

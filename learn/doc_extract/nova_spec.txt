@@ -1,0 +1,195 @@
+
+nova:a H.264/AVC Baseline Decoder
+Specification
+
+
+
+Author: Ke Xu
+eexuke@yahoo.com
+
+
+
+
+Rev. 0.1
+ TIME \@ "MMMM d, yyyy" May 2, 2008
+
+--- PAGE ---
+
+
+--- PAGE ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+This page has been intentionally left blank.
+
+--- PAGE ---
+Revision History
+Rev.	Date	Author	Description		0.1	30/04/08	Ke Xu	First Draft																																										
+
+--- PAGE ---
+Contents
+ TOC \t "Heading 3,2,Index,1,Appendix A,1,Heading 2 name,1,Appendix B,1" Introduction	 PAGEREF _Toc197493550 \h 1
+Architecture	 PAGEREF _Toc197493551 \h 3
+Operation	 PAGEREF _Toc197493552 \h 5
+On-chip memories	 PAGEREF _Toc197493553 \h 6
+Clocks	 PAGEREF _Toc197493554 \h 8
+IO Ports	 PAGEREF _Toc197493555 \h 9
+Appendix A	 PAGEREF _Toc197493556 \h 10
+Appendix B	 PAGEREF _Toc197493557 \h 12
+Index	 PAGEREF _Toc197493558 \h 13
+
+
+--- PAGE ---
+
+Introduction
+Nova is a low-power H.264/AVC baseline decoder targeting mobile applications. It is a dedicated, full hardwired ASIC design without utilizing any GPP/DSP cores. 
+Features:
+RTL coded in Verilog-HDL.
+Support real-time H.264/AVC baseline decoding of QCIF resolution. Can be extended to higher resolutions via minor modifications.
+Extensively pipelining & parallelism are utilized to improve the performance and reduce power.
+Hybrid and self-adaptive pipeline architecture to avoid unnecessary stall cycles and to improve performance:
+Self-adaptive pipeline for both intra and inter prediction.
+4×4/16×16 hybrid pipeline.
+1×4 pixel column-level parallelism. 
+Low cost intra prediction unit:
+Self-adaptive pipeline.
+Hierarchical memory organization to reduce external memory access.
+“Seed” method for plane mode computation.
+Exploring data reuse between 1×4 columns.
+Multi-function Processing Elements for all intra prediction modes processing. 
+Optimized motion compensation (inter prediction) unit:
+Self-adaptive pipeline.
+Hierarchical memory organization to reduce external memory access.
+“Variable-block-shape” to reduce redundant memory access and improve throughput.
+On-chip reference pixel buffer to explore reference pixel reuse.
+Pipelined and parallelized luma interpolator, consisting of 9 horizontal 6-tap filters, 4 vertical 6-tap filters, and 4 bilinear filters.
+Innovative chroma interpolator utilizing smallest number of adders.
+High performance deblocking filter.
+Innovative 5-stage pipeline architecture with data/structure hazards carefully managed.
+Single-port SRAM based, no dual/two-port SRAM required.
+204cycles/MB throughput with max. frequency of 200MHz (0.18µm process). Can deliver up to 980kMB/s throughput.
+Manually inserted latch-based clock gating to reduce power.
+Low-power, low-cost design.
+Requires only ~1.5MHz for QCIF 30fps real time decoding.
+Only 169k logic gates.
+Measured power consumption as low as 293µW.
+
+Nova has been proved on both FPGA environment and on real silicon:
+The FPGA implementation results are listed below:
+Table  SEQ Table \* ARABIC 1 FPGA implementation
+Device	Virtex-4 xc4vlx200-10ff1513		Number of slices	18,377 (utilization 20%)		Number of 4-input LUTs	32,711 (utilization 18%)		Total equivalent gate count	10,405,748		The ASIC implementation results are shown below:
+Table  SEQ Table \* ARABIC 2 ASIC implementation
+Technology	0.18µm CMOS 1P6M		Supply Voltage	1.8V core, 3.3V I/O		Size (pad limited design)	3.8×3.8mm2 core, 4.4×4.4mm2 with pad		Package	CQFP 208		Design Cost	Logic Gates	169K (in NAND2)			Memory	2.5K byte SRAM		Operating Frequency	1.5MHz for QCIF @ 30fps		Measured Power 	293µW @ 1.0V, 973µW @ 1.8V		 
+
+Architecture
+1. Nova is divided into two parts, bitstream parser (also called bitstream controller), and reconstruction datapath, as shown below.
+ EMBED Visio.Drawing.11  
+Fig.  SEQ Fig. \* ARABIC 1 System architecture
+
+The proposed 4×4/16×16 hybrid pipeline is depicted below:
+ EMBED Visio.Drawing.11  
+Fig.  SEQ Fig. \* ARABIC 2 Hybrid pipeline architecture
+
+The RTL verilog-HDL code structure is illustrated below:
+ EMBED Visio.Drawing.11  Fig.  SEQ Fig. \* ARABIC 3 Verilog-HDL code structure
+
+Operation
+This section describes the operation of the core: 
+After system reset, the BitStream_buffer starts to fetch bitstream from Beha_BitStream_ram via 16bit width data bus (BitStream_buffer_input).
+After 4 clock cycles when half of the 128bit BitStream_buffer is filled, it sends the bitstream to the following decoder via 16bit width data bus (BitStream_buffer_output). The BitStream_buffer acts as an interface between off-chip BitStream_ram and on-chip decoder. An automatically-refill mechanism is employed to refill the buffer if half of its stored bitstream (>=64bit) is consumed.
+The BitStream_controller starts decoding when BitStream_buffer_valid_n = 1’b0. It generates control parameters and control signals for reconstruction datapath.
+The reconstruction datapath is mainly consisted of intra prediction, inter prediction, and deblocking filter. Either intra or inter prediction block is invoked according to current macroblock type. The output of intra/inter block is sent to deblocking filter if required. 
+The deblocking filter output is sent to external memory. There are two memories, ext_frame_RAM0_wrapper & ext_frame_RAM1_wrapper. If one is acting as reference memory (providing reference pixels for the decoder), the other is acting as display memory (the decoder is writing decoded pixels to this memory). After 1 frame is decoded, RAM0 and RAM1 exchange their functions. 
+
+
+On-chip memories
+There are two types of on-chip memories, register file (RF) and SRAM. In RTL coding, all the RFs are instantiated from behavior module ram_async_1r_sync_1w, while all the SRAMs are instantiated from behavior module ram_sync_1r_sync_1w. During ASIC implementation, all the RFs are synthesized from Synopsys DesignWare and all the SRAMs are provided by the foundry. 
+List of RF
+Table  SEQ Table \* ARABIC 3 RF usage
+Name	Depth	Width	Access		Intra4x4_PredMode_RF	11	16	Async read, sync write		LumaLevel_mbAddrB_ RF	11	20	Async read, sync write		ChromaLevel_Cb_mbAddrB_ RF	11	10	Async read, sync write		ChromaLevel_Cr_mbAddrB _RF	11	10	Async read, sync write		mvx_mbAddrB_RF	11	32	Async read, sync write		mvy_mbAddrB_RF	11	32	Async read, sync write		mvx_mbAddrC_RF	10	8	Async read, sync write		mvy_mbAddrC_RF	10	8	Async read, sync write		
+
+List of SRAM
+Table  SEQ Table \* ARABIC 4 SRAM usage
+Name	Depth	Width	Access		Intra_mbAddrB_RAM	88	32	Sync read, sync write		DF_mbAddrA_RAM	32	32	Sync read, sync write		DF_mbAddrB_RAM	352	32	Sync read, sync write		rec_DF_RAM0	96	32	Sync read, sync write		rec_DF_RAM1	96	32	Sync read, sync write		
+Clocks
+Nova is a full synchronous design with only one clock input which drives all the DFFs and on-chip SRAMs.  
+Table  SEQ Table \* ARABIC 5: List of clocks
+Name	Source	Rates (MHz)	Remarks	Description				Max	Min	Resolution				clk	Input	10	1	NA	Duty cycle 50/50.	Single clock for the entire design		
+The final layout clock tree is illustrated below:
+ EMBED Visio.Drawing.11  
+Fig.  SEQ Fig. \* ARABIC 4 Clock tree layout
+
+IO Ports
+This section specifies the core IO ports.
+Table  SEQ Table \* ARABIC 6 IO ports
+Port	Width	Direction	Description		clk	1	Input	System clock		reset_n	1	Input	System reset, low active		BitStream_buffer_input	16	Input	BitStream_buffer data input		BitStream_ram_ren	1	Output	BitStream_buffer read enable, low active		BitStream_ram_addr	17	Output	BitStream_buffer address		pin_disable_DF	1	Input	Externally enable/disable deblocking filter. 
+=1 deblocking filter is disabled
+=0 the decoded bitstream will decide whether to enable/disable deblocking filter		freq_ctrl0	1	Input	Frequency control input		freq_ctrl1	1	Input	Frequency control input		pic_num	6	Output	The low 6 bit of current decoding picture number. For debug purpose		ext_frame_RAM0_data	32	Input	External RAM0 data		ext_frame_RAM0_cs_n	1	Output	External RAM0 chip select, low active 		ext_frame_RAM0_wr	1	Output	External RAM0 write control, high active		ext_frame_RAM0_addr	14	Output	External RAM0 address		ext_frame_RAM1_data	32	Input	External RAM1 data		ext_frame_RAM1_cs_n	1	Output	External RAM1 chip select, low active 		ext_frame_RAM1_wr	1	Output	External RAM1 write control, high active		ext_frame_RAM1_addr	14	Output	External RAM1 address		
+
+Software Simulation
+Ten 300frames QCIF video sequences are used for testing. They are encoded by JM94 software ( HYPERLINK "http://iphome.hhi.de/suehring/tml/" http://iphome.hhi.de/suehring/tml/)
+Table  SEQ Table \* ARABIC 7 QCIF test sequences
+	QP	Bitrate
+(kb/s)	Bits/frame
+(Intra)	Bits/frame
+(Inter)	SNR 
+Y (dB)	SNR 
+U (dB)	SNR 
+V(dB)		Mother & daughter	24	78.92	24,215	2,512	40.03	43.37	43.94		News	26	94.8	32,161	3,018	38.05	40.97	41.56		Akiyo	28	24.83	19,005	721	38.03	40.82	41.68		Claire	28	30.68	12,939	937	39.6	39.4	42		Foreman	28	130.24	21,911	4,177	36.16	40.54	41.64		Silent	30	65.06	21,350	2,058	34.19	37.7	38.99		Container	30	28.65	20,768	843	34.36	39.93	39.64		Hall	32	30.75	15,644	931	34.44	37.97	40.17		Coastguard	34	65.39	13,107	2,097	29.7	39.8	42.14		Carphone	36	45.19	10,418	1,431	30.69	36.635	37.135		
+JM94 outputs binary .264 files which can not be read directly into verilog (Maybe it can but I don’t know?). A format conversion file, bin2hex.pl, is provided in test directory. Usage (under unix environment): 
+bin2hex.pl akiyo300_1ref.264
+where akiyo300_1ref.264 is the JM encoder output. The name of the converted text file should be specified in line 8 of bin2hex.pl.
+The text file would be read via Beha_BitStream_ram by:
+$readmemh("C:/nova/test/bitstream/akiyo300_1ref.txt",BitStream_ram);
+Modify the location of the file if pointing to other paths.
+The decoded outputs are generated from ext_frame_RAM0_wrapper and ext_frame_RAM1_wrapper. The “nova_display.log” is used for display while “nova_MB_output.log” is used for debug.
+The software I used, YUVViewer, does not properly display the text format input frame. Therefore, a C program is provided in test directory to convert the text back to binary. Remember, we first converted the input bitstream from binary to text, now we are converting the decoded frame from text back to binary.
+Now you should get “nova300.yuv” somewhere, put it into YUVViewer and good luck!
+
+FPGA Verification
+To be added later.
+
+
+This section contains a list of helpful document entries with their corresponding page numbers.
+Ke Xu, “Power-efficient Design Methodology for Video Decoding”, PhD thesis, 2007.
+Ke Xu, etc., “A 5-stage Pipeline, 204 Cycles/MB, Single-port SRAM Based Deblocking Filter for H.264/AVC”, IEEE Transactions on Circuits and Systems for Video Technology, vol. 18, issue 3, pp. 363 – 374, 2008.
+Ke Xu, etc., “A Power-efficient and Self-adaptive Prediction Engine for H.264/AVC Decoding”, IEEE Transactions on VLSI Systems, vol. 16, issue 3, pp. 302 - 313, 2008.
+Ke Xu, etc., “Power Efficient VLSI Realization of Complex FSM for H.264/AVC Bitstream Parsing”, IEEE Transactions on Circuits and Systems, Part II, vol. 54, issue 11, pp. 984 – 988, 2007. 
+Ke Xu, etc., “Priority-based Heading One Detector in H.264/AVC Decoding”, EURASIP Journal on Embedded Systems, vol. 2007, Article ID 60834.
+Ke Xu, etc., “Low-power H.264/AVC Baseline Decoder for Portable Applications”, International Symposium on Low Power Electronics and Design, pp. 256 - 261, Sept. 2007.
+Ke Xu, etc., “A Low-power BitStream Controller for H.264/AVC Baseline Decoding”, 32nd European Solid-State Circuits Conference, pp. 162- 165, Sept 2006.
+Ke Xu, etc., “Power-efficient VLSI Implementation of BitStream Parsing in H.264/AVC Decoder”, IEEE International Symposium on Circuits and Systems, pp. 5339 - 5342, May 2006.
+
+ OpenCores	nova: a H.264/AVC Baseline Decoder	 DATE  \* MERGEFORMAT 5/2/2008
+
+
+
+HYPERLINK "http://www.opencores.org/"www.opencores.org	Rev 0.1 Preliminary	 PAGE ii
+
+ OpenCores	nova: a H.264/AVC Baseline Decoder	 DATE  \* MERGEFORMAT 5/2/2008
+
+
+
+HYPERLINK "http://www.opencores.org/"www.opencores.org	Rev 0.1 Preliminary	 PAGE iv 
+
+
+
+
+
+HYPERLINK "http://www.opencores.org/"www.opencores.org	Rev 0.1 Preliminary	 PAGE 13 of  SECTIONPAGES13
+
+
+ EMBED PBrush  
+
+
+

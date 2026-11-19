@@ -1,0 +1,19 @@
+==============================================================
+ nova 回归测试    2026-11-19 12:32:30
+   帧数=1  freq=1  DF=on
+==============================================================
+[1/6] 输入为 .264 裸码流，先转成 hex 文本 ...
+[bin2hex] vectors/testsrc_frame0.264 -> out/f0_from264.txt
+[bin2hex]   2902 字节 = 1451 个 16bit word = 1451 行
+[2/6] ffmpeg 解码生成参考 YUV ...
+[3/6] 编译 RTL (iverilog) ...
+      编译成功（0 条非 timescale 提示，详见 out/f0_build.log.filtered）
+[4/6] 运行仿真 (1 帧) ...
+[TB] bitstream = out/f0_from264.txt
+[TB] output    = out/f0_nova.yuv
+[TB] frames    = 1
+WARNING: tb/tb_nova.v:314: $readmemh(out/f0_from264.txt): Not enough words in the file for the requested range [0:131071].
+[TB] TIMEOUT after 320001 cycles, 0 pictures decoded
+tb/tb_nova.v:333: $finish called at 217601360 (1ns)
+      仿真耗时 15 秒
+错误: 没有产生输出 out/f0_nova.yuv

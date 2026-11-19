@@ -1,0 +1,46 @@
+==============================================================
+ nova 回归测试    2026-11-19 12:33:54
+   帧数=5  freq=1  DF=on
+==============================================================
+[1/6] 输入为 .264 裸码流，先转成 hex 文本 ...
+[bin2hex] vectors/testsrc_poc0.264 -> out/poc0_from264.txt
+[bin2hex]   49398 字节 = 24699 个 16bit word = 24699 行
+[2/6] ffmpeg 解码生成参考 YUV ...
+[3/6] 编译 RTL (iverilog) ...
+      编译成功（0 条非 timescale 提示，详见 out/poc0_build.log.filtered）
+[4/6] 运行仿真 (5 帧) ...
+[TB] bitstream = out/poc0_from264.txt
+[TB] output    = out/poc0_nova.yuv
+[TB] frames    = 5
+WARNING: tb/tb_nova.v:314: $readmemh(out/poc0_from264.txt): Not enough words in the file for the requested range [0:131071].
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 1 at cycle 40319 (t=27417600)
+[TB] end-of-stream flush: emitting last picture from buffer 1
+[TB] emitted picture 2 at cycle 99361 (t=67566160)
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 3 at cycle 140900 (t=95812680)
+[TB] end-of-stream flush: emitting last picture from buffer 1
+[TB] emitted picture 4 at cycle 190990 (t=129873880)
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 5 at cycle 241673 (t=164338320)
+[TB] DONE: 5 pictures, 241675 cycles, 48335 cycles/picture
+tb/tb_nova.v:345: $finish called at 164339001 (1ns)
+      仿真耗时 16 秒
+[5/6] 逐像素比对 ...
+[compare] nova : out/poc0_nova.yuv  (190080 B, 5 帧)
+[compare] ref  : out/poc0_ref.yuv  (11404800 B, 300 帧)
+[compare] 比对 5 帧, 176x144 YUV420p, 单帧 38016 B
+
+
+============================================================
+[compare] 总像素数    : 190080
+[compare] 不同像素总数: 190075
+[compare] 最差单点    : 帧 0 / V / maxdiff=255
+[compare] 整序列 PSNR : 4.94 dB
+[compare] 结果: FAIL —— 5 帧存在差异 (首帧 0, 末帧 4)
+[6/6] 完整性检查 ...
+[check] nova 输出 5 帧 / 参考序列共 300 帧 / 请求 5 帧
+[check] 帧数完整
+==============================================================
+ 结果: FAIL (compare=1 check=0)
+==============================================================

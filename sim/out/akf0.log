@@ -1,0 +1,39 @@
+==============================================================
+ nova 回归测试    2026-11-19 12:33:22
+   帧数=1  freq=1  DF=on
+==============================================================
+[1/6] 输入为 .264 裸码流，先转成 hex 文本 ...
+[bin2hex] 码流长度 2401 为奇数，末尾补 1 字节 0x00
+[bin2hex] vectors/akiyo_frame0.264 -> out/akf0_from264.txt
+[bin2hex]   2401 字节 = 1201 个 16bit word = 1201 行
+[2/6] ffmpeg 解码生成参考 YUV ...
+[3/6] 编译 RTL (iverilog) ...
+      编译成功（0 条非 timescale 提示，详见 out/akf0_build.log.filtered）
+[4/6] 运行仿真 (1 帧) ...
+[TB] bitstream = out/akf0_from264.txt
+[TB] output    = out/akf0_nova.yuv
+[TB] frames    = 1
+WARNING: tb/tb_nova.v:314: $readmemh(out/akf0_from264.txt): Not enough words in the file for the requested range [0:131071].
+[TB] end-of-stream flush: emitting last picture from buffer 0
+[TB] emitted picture 1 at cycle 47154 (t=32065400)
+[TB] DONE: 1 pictures, 47156 cycles, 47156 cycles/picture
+tb/tb_nova.v:345: $finish called at 32066081 (1ns)
+      仿真耗时 4 秒
+[5/6] 逐像素比对 ...
+[compare] nova : out/akf0_nova.yuv  (38016 B, 1 帧)
+[compare] ref  : out/akf0_ref.yuv  (38016 B, 1 帧)
+[compare] 比对 1 帧, 176x144 YUV420p, 单帧 38016 B
+
+
+============================================================
+[compare] 总像素数    : 38016
+[compare] 不同像素总数: 0
+[compare] 最差单点    : 帧 0 /  / maxdiff=0
+[compare] 整序列 PSNR : inf (比特精确)
+[compare] 结果: PASS —— 1 帧全部比特精确，与 ffmpeg 完全一致
+[6/6] 完整性检查 ...
+[check] nova 输出 1 帧 / 参考序列共 1 帧 / 请求 1 帧
+[check] 帧数完整
+==============================================================
+ 结果: PASS
+==============================================================

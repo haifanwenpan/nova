@@ -1,0 +1,37 @@
+==============================================================
+ nova 回归测试    2026-11-19 12:25:52
+   帧数=3  freq=1  DF=on
+==============================================================
+[1/6] 使用已有码流: /home/chenye/learning/nova/test/bitstream/akiyo300_1ref.txt
+[hex2bin] akiyo300_1ref.txt -> smoke_from_hex.264  (131072 word, 262144 字节)
+[2/6] ffmpeg 解码生成参考 YUV ...
+[3/6] 编译 RTL (iverilog) ...
+      编译成功（0 条非 timescale 提示，详见 out/smoke_build.log.filtered）
+[4/6] 运行仿真 (3 帧) ...
+[TB] bitstream = /home/chenye/learning/nova/test/bitstream/akiyo300_1ref.txt
+[TB] output    = out/smoke_nova.yuv
+[TB] frames    = 3
+[TB] emitted picture 1 at cycle 50067 (t=34046240)
+[TB] emitted picture 2 at cycle 100071 (t=68048960)
+[TB] emitted picture 3 at cycle 150075 (t=102051680)
+[TB] DONE: 3 pictures, 150077 cycles, 50026 cycles/picture
+tb/tb_nova.v:296: $finish called at 102052361 (1ns)
+      仿真耗时 10 秒
+[5/6] 逐像素比对 ...
+[compare] nova : out/smoke_nova.yuv  (114048 B, 3 帧)
+[compare] ref  : out/smoke_ref.yuv  (11404800 B, 300 帧)
+[compare] 比对 3 帧, 176x144 YUV420p, 单帧 38016 B
+
+
+============================================================
+[compare] 总像素数    : 114048
+[compare] 不同像素总数: 0
+[compare] 最差单点    : 帧 0 /  / maxdiff=0
+[compare] 整序列 PSNR : inf (比特精确)
+[compare] 结果: PASS —— 3 帧全部比特精确，与 ffmpeg 完全一致
+[6/6] 完整性检查 ...
+[check] nova 输出 3 帧 / 参考序列共 300 帧 / 请求 3 帧
+[check] 帧数完整
+==============================================================
+ 结果: PASS
+==============================================================

@@ -167,6 +167,28 @@ module tb_nova;
   always #340 clk = ~clk;   // ~1.47 MHz, mirrors the original testbench (680 ns period)
 
   //----------------------------------------------------------------------------------------------
+  // Waveform dump (opt-in)
+  //   +wave=<file>  dump a waveform for post-simulation debugging, e.g.
+  //                   vvp out/nova_tb.vvp +bitstream=... +wave=nova.vcd
+  //                 Omit the plusarg and no dump is produced, so the regression
+  //                 flow is unaffected.
+  //   Scope is deliberately narrow: bench top, nova's ports, the parser FSM
+  //   internals (2 levels) and the reconstruction datapath. Dumping the whole
+  //   hierarchy gives ~90 MB for a single frame, which is slow to convert and
+  //   painful to browse; this lands around 15 MB for the same run.
+  //----------------------------------------------------------------------------------------------
+  reg [1023:0] wave_file;
+  initial begin
+    if ($value$plusargs("wave=%s", wave_file)) begin
+      $dumpfile(wave_file);
+      $dumpvars(1, tb_nova);
+      $dumpvars(1, tb_nova.u_nova);
+      $dumpvars(2, tb_nova.u_nova.BitStream_controller);
+      $dumpvars(1, tb_nova.u_nova.reconstruction);
+    end
+  end
+
+  //----------------------------------------------------------------------------------------------
   // Test control
   //----------------------------------------------------------------------------------------------
   integer    fd_yuv;

@@ -88,19 +88,10 @@ sim/
 可给别人看"原版长什么样"）。
 
 ```bash
-#!/bin/bash
-# setup_rtl.sh —— 把 src/ 复制到 sim/rtl/ 并打上 iverilog 需要的补丁
-SRC=../src
-DST=rtl
-rm -rf "$DST"; mkdir -p "$DST"
-cp "$SRC"/*.v "$DST"/
-
-# 补丁 1：pc_decoding.v 的位宽不定
-sed -i 's/{{pc_reg\[6:3\] + 1},3'"'"'b0}/{{pc_reg[6:3] + 4'"'"'d1},3'"'"'b0}/g' "$DST/pc_decoding.v"
-# 补丁 2：Intra_pred_pipeline.v 的位宽不定
-sed -i 's/{(mb_num_h + 1),2'"'"'b0}/{(mb_num_h + 4'"'"'d1),2'"'"'b0}/g' "$DST/Intra_pred_pipeline.v"
-# 补丁 3：Beha_BitStream_ram.v 的硬编码路径
-sed -i 's|"D:/nova_opencores/bin2hex/akiyo300_1ref.txt"|"akiyo300_1ref.txt"|' "$DST/Beha_BitStream_ram.v"
+# setup_rtl.sh —— 复制 src/*.v 到 sim/rtl/，并用内嵌 Python 3 做三处精确替换：
+# 补丁 1：pc_decoding.v:195-196       {{pc_reg[6:3] + 1},3'b0} -> {{pc_reg[6:3] + 4'd1},3'b0}
+# 补丁 2：Intra_pred_pipeline.v:325   {(mb_num_h + 1),2'b0}    -> {(mb_num_h + 4'd1),2'b0}
+# 补丁 3：Beha_BitStream_ram.v:30     "D:/nova_opencores/.../akiyo300_1ref.txt" -> "nova_bitstream.txt"
 ```
 
 ### 三个补丁的详细解释
@@ -161,7 +152,8 @@ pc <= (pc_reg[2:0] == 3'b000) ? pc_reg : {{pc_reg[6:3] + 4'd1}, 3'b0};
 | `+frames=<n>` | 解多少帧后停 | 1 |
 | `+freq=<0..3>` | `freq_ctrl` 速率档位 | 1 |
 | `+nodb` | 关闭去块滤波（`pin_disable_DF=1`）| 关 |
-| `+maxcyc=<n>` | 绝对周期上限（防死循环）| 60e6 |
+| `+maxcyc=<n>` | 绝对周期上限（防死循环）| 60000000 |
+| `+wave=<file.vcd>` | 开启 VCD 波形 dump（配合第 12 章转 FST）| 关 |
 
 **用法**：
 
@@ -173,10 +165,9 @@ vvp out/nova_tb.vvp +bitstream=../test/bitstream/akiyo300_1ref.txt \
 #### 时钟与复位
 
 ```verilog
-localparam CLK_HALF = 340;     // 680 ns 周期 ≈ 1.47 MHz
-
+// tb_nova.v:166-174
 initial clk = 1'b1;
-always #CLK_HALF clk = ~clk;
+always #340 clk = ~clk;        // 680 ns 周期 ≈ 1.47 MHz
 
 initial begin
     reset_n = 1'b1;
@@ -215,11 +206,11 @@ reg buf1_written = 1'b0;
 
 always @ (posedge clk) begin
     if (ext_frame_RAM0_cs_n == 1'b0 && ext_frame_RAM0_wr == 1'b1) begin
-        mem0[ext_frame_RAM0_addr] <= ext_frame_RAM0_data;
+        mem0[ext_frame_RAM0_addr] <= dis_frame_RAM_din;
         buf0_written <= 1'b1;
     end
     if (ext_frame_RAM1_cs_n == 1'b0 && ext_frame_RAM1_wr == 1'b1) begin
-        mem1[ext_frame_RAM1_addr] <= ext_frame_RAM1_data;
+        mem1[ext_frame_RAM1_addr] <= dis_frame_RAM_din;
         buf1_written <= 1'b1;
     end
 end
@@ -514,7 +505,7 @@ python3 scripts/compare_yuv.py nova.yuv ref.yuv [--frames N] [--w 176] [--h 144]
   -b, --bitstream <file>   输入码流（.264 裸流 或 .txt hex 文本；默认 akiyo300_1ref.txt）
   -n, --frames <n>         解码帧数（默认 10）
   -f, --freq <0..3>        freq_ctrl 档位（默认 1）
-  -t, --tag <name>         输出文件前缀（默认 regress）
+  -t, --tag <name>         输出文件前缀（默认 run，带 --nodb 时默认 run_nodb）
       --nodb               关闭去块滤波
       --encode             用 ffmpeg 现编一段测试码流（testsrc QCIF + libx264）
       --encode-from <yuv>  用指定的 YUV 编测试码流
@@ -565,7 +556,7 @@ ffmpeg -f rawvideo -pix_fmt yuv420p -s 176x144 -r 30 -i vectors/testsrc_qcif.yuv
 |---|---|
 | `keyint=30` | 每 30 帧一个 IDR（便于单帧提取）|
 | `min-keyint=30` | 固定 GOP，不做场景切换检测 |
-| `ref=1` | **只 1 个参考帧**（nova 的 `mvx_mbAddrB_RF` 只有 11 位 = 32 个 8×8 块）|
+| `ref=1` | **只 1 个参考帧**（`ext_RAM_ctrl.v` 只有两块外部帧存做 1 写 1 读乒乓，且 `Inter_mv_decoding.v` 仅用 1-bit 有效标志）|
 | `slices=1` | **每帧单 slice**（nova 不支持多 slice）|
 
 #### [2/6] ffmpeg 参考解码
@@ -596,7 +587,7 @@ iverilog -g2005 -o out/nova_tb.vvp -s tb_nova -I rtl tb/tb_nova.v rtl/*.v 2>&1 \
 
 - `timescale inherited from another`（147 条）—— 只有 `timescale.v` 有声明，
   其余文件继承
-- `sorry: implicit definition`（4 条）—— 原 `nova_tb.v` 里没声明的 wire
+- `sorry: implicit definition` —— 源于 `src/reconstruction.v:253, 255` 中未声明也未驱动的 `rec_DF_RAM0_cs_n` / `rec_DF_RAM1_cs_n`（详见第 8.3 节）
 
 **编译结果**：**零错误**，约 5 MB 的 `.vvp`。
 
@@ -706,15 +697,15 @@ always 块。实测速度约 **3.8 秒/帧**（300 帧 / 19 分钟）。作为�
 |---|---|
 | CAVLC 熵解码 | 全图乱码 |
 | 反量化 + IDCT 的移位/舍入 | 整帧偏色或出现块效应 |
-| **IsHadamard 的两次变换归一化**（第 4 章）| **整帧 DC 偏移 2 倍** |
+| **`IsHadamard` 切换 DC Hadamard 与 AC IDCT**（第 4 章）| **AC 4×4 IDCT 丢掉 `>> 1`，全平面严重失真** |
 | 帧内 9 种模式的加权系数 | 预测块方向错 |
-| **"种子"法的 16/4 bit 移位切换**（第 5 章）| **plane 模式整块偏色** |
+| **"种子"法的 16×16 / 8×8 移位切换**（第 5 章）| **plane 模式整块偏色** |
 | 6-tap 滤波的 `+16 >> 5` | 分数像素位置轻微偏差 |
-| **`H_need_round` 的例外条件**（第 6 章）| **j 位置像素精度丢失** |
+| **`H_need_round` 与 `Is_V_jfqik` 的例外条件**（第 6 章）| **j/f/q/i/k 位置像素精度丢失** |
 | 色度双线性的 `+32 >> 6` | 色度偏 |
 | DF 的 **beta 表移位减法** | 阈值错 → 滤波不足或过度 |
 | DF 的 `clip_to_c` 边界 | 边缘出现锯齿 |
-| **40 个门控时钟的使能条件** | **某个寄存器少更新一次 → 局部错块** |
+| **39 路门控时钟的使能条件** | **某个寄存器少更新一次 → 局部错块** |
 
 **特别是最后一条**：门控时钟写错一个 bit，某个寄存器就少更新一次。
 **这种 bug 极难用波形看出来，但一定会在像素上暴露。**
@@ -776,14 +767,14 @@ done
 **这 4 个周期是帧边界握手开销**（`end_of_one_frame` 拉高到解析器真正启动）。
 说明这两档下**重建流水线有富余，完全在等速率控制的放行信号**。
 
-### 观察 2：`freq=2/3` 反而开始抖动
+### 观察 2：`freq=2/3` 为什么出现小于 `cycles_per_frame` 的“抖动”？（TB 阈值揭秘）
 
-`freq=2` 的逐帧增量在 53352~57937 之间跳，`freq=3` 在 61265~70637 之间跳。
-**抖动来自"重建偶尔追不上"**：某些帧的重建时间接近 `cycles_per_frame`，
-于是这帧被算力主导、下一帧又被速率控制主导。
+`freq=2`（57,300）的逐帧增量会掉到 53,352，`freq=3`（70,000）的首页就吐在 62,154、后续增量掉到 61,265 —— **注意这些数字比 `cycles_per_frame` 更小，所以绝不可能是“重建算力追不上”**（算力追不上只会把周期撑大，不可能缩短）！
 
-**这提示了一个重要事实**：`cycles_per_frame` 调到很大时，
-瓶颈会从"速率控制"转移到"重建算力"，而后者是**内容相关的**（会抖）。
+**真实根因是 `tb_nova.v:286` 的 `IDLE_FLUSH = 20000` 再次被撞上了**：
+- `akiyo` 的第 1 帧（I 帧）在约 cycle **42,154** 写完外部帧存，后续 P 帧只需 **33,000~37,000 拍**就写完；
+- 在 `freq=2`（57,300）或 `freq=3`（70,000）下，写完帧存后距离下一帧 `slice_header_s6` 的空闲等待长达 `57300 − 33000 ≈ 24,300` 拍乃至 `70000 − 42154 = 27,846` 拍，**超过了 `IDLE_FLUSH = 20000`**！
+- 于是 `tb_nova.v` 的空闲兜底逻辑在 `last_write + 20000`（如 `42154 + 20000 = 62154`）处提前吐出帧，导致观测时间戳跟帧内容（`last_write`）一起抖动！如果把 `IDLE_FLUSH` 调大到 `45000` 以上，`freq=2/3` 同样会呈现出精确的 `+57304` / `+70004`。
 
 ### 观察 3：MB 级速率与 `freq_ctrl` 完全无关
 
@@ -1102,14 +1093,13 @@ end
 
 | 位置 | nova 以为在读 | 实际读到的是 |
 |---|---|---|
-| `log2_max_poc_lsb_m4` | 6 bit | x264 的 `num_ref_frames` |
-| `num_ref_frames` | ue(v) | x264 的 `gaps_flag` + 后续位 |
+| `log2_max_poc_lsb_m4` | `ue(v)` | x264 的 `num_ref_frames` |
+| `num_ref_frames` | `ue(v)` | x264 的 `gaps_flag` + 后续位 |
 | `gaps_in_frame_num_value_allowed_flag` | 1 bit | 错位的位 |
-| `pic_width_in_mbs_minus1` | ue(v) | **错的宽高** |
-| `pic_height_in_map_units_minus1` | ue(v) | **错的高** |
+| `pic_width_in_mbs_minus1` | `ue(v)` | **错位的位** |
+| `pic_height_in_map_units_minus1` | `ue(v)` | **错位的位** |
 
-**结果**：`pic_width` / `pic_height` 全错 → 后续 `mb_num_h`/`mb_num_v`
-比较全错 → **`mb_num == 98` 永远不成立 → 永远不吐帧**。
+**结果**：虽然 `pic_width`/`pic_height` 在 `nova` 里根本没被使用，但整段 SPS 比特流错位后，状态机无法在正确边界遇到合法起始码与语法元素，解析器直接卡死在 `start_code_prefix` 附近（`pc=96, ram_addr=5`），永远解不出有效宏块。
 
 **`slice_header` 也一样**（`BitStream_parser_FSM_gating.v:257`）：
 
@@ -1124,12 +1114,12 @@ end
 **`BitStream_parser_FSM_gating.v:170-176`**：
 
 ```verilog
-// 原文
+// 原文（BitStream_parser_FSM_gating.v:170-176）
 case (nal_unit_type)
-    5'b00001: nal_unit_state <= `slice_layer_wo_partitioning_state;  // non-IDR
-    5'b00101: nal_unit_state <= `slice_layer_wo_partitioning_state;  // IDR
-    5'b00111: nal_unit_state <= `seq_parameter_set_state;            // SPS
-    5'b01000: nal_unit_state <= `pic_parameter_set_state;            // PPS
+    5'b00001: nal_unit_state <= `slice_layer_non_IDR_rbsp;  // non-IDR
+    5'b00101: nal_unit_state <= `slice_layer_IDR_rbsp;      // IDR
+    5'b00111: nal_unit_state <= `seq_parameter_set_rbsp;    // SPS
+    5'b01000: nal_unit_state <= `pic_parameter_set_rbsp;    // PPS
     // ← 没有 default！
 endcase
 ```
